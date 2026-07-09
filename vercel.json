@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "devCommand": "vite",
+  "installCommand": "npm ci",
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "framework": "vite",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x",
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/boot"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ]
+}
