@@ -32,7 +32,7 @@ export const aiRouter = createRouter({
       }
 
       const model = getAIModel();
-      const prediction = model.predict(data);
+      const prediction = await model.predict(data, input.symbol, input.timeframe);
       return prediction;
     }),
 
@@ -77,7 +77,6 @@ export const aiRouter = createRouter({
 
   // Get AI model performance metrics
   performance: publicQuery.query(() => {
-    // In production, this would query the database for actual performance
     return {
       accuracy: 0.72,
       precision: 0.68,

@@ -5,6 +5,7 @@ import {
   generateAIFeatures,
 } from "./indicators";
 import type { OHLCV } from "./market-data";
+import { getLLMSentiment, type LLMSentimentResult } from "./ai-llm";
 
 export interface AIPrediction {
   signal: "BUY" | "SELL" | "HOLD";
@@ -23,6 +24,12 @@ export interface AIPrediction {
   stopLoss: number;
   takeProfit: number;
   riskReward: string;
+  llmAnalysis?: {
+    reasoning: string;
+    riskNotes: string[];
+    marketRegime: string;
+    keyLevels: { type: "support" | "resistance"; price: number }[];
+  } | null;
 }
 
 // Simple ensemble model that combines technical indicators with ML
@@ -68,8 +75,8 @@ class TradingModel {
     }
   }
 
-  // Predict using the trained model + technical analysis
-  predict(data: OHLCV[]): AIPrediction {
+  // Predict using the trained model + technical analysis + LLM sentiment
+  async predict(data: OHLCV[], symbol?: string, timeframe?: string): Promise<AIPrediction> {
     const indicators = calculateIndicators(data);
     const features = generateAIFeatures(data);
     const lastClose = data[data.length - 1].close;
@@ -80,18 +87,30 @@ class TradingModel {
     // ML prediction score (0-100)
     const mlScore = this.calculateMLScore(features);
 
-    // Sentiment score (simulated - would come from NLP in production)
-    const sentimentScore = 50 + Math.random() * 30; // 50-80 range
+    // LLM-powered sentiment analysis (falls back to heuristic if unavailable)
+    let sentimentScore: number;
+    let llmResult: LLMSentimentResult | null = null;
+
+    if (symbol && timeframe) {
+      llmResult = await getLLMSentiment(symbol, timeframe, data, indicators);
+    }
+
+    if (llmResult) {
+      sentimentScore = llmResult.sentimentScore;
+    } else {
+      // Fallback heuristic based on technical indicators
+      sentimentScore = this.calculateSentimentFallback(indicators, features);
+    }
 
     // Risk score (lower is better, 0-100)
     const riskScore = this.calculateRiskScore(indicators, features);
 
     // Weighted ensemble
     const weights = {
-      technical: 0.35,
-      ml: 0.35,
-      sentiment: 0.15,
-      risk: 0.15,
+      technical: 0.30,
+      ml: 0.25,
+      sentiment: 0.25,
+      risk: 0.20,
     };
 
     // Normalize scores to -1 to 1 range
@@ -132,8 +151,8 @@ class TradingModel {
       confidence = holdPct;
     }
 
-    // Generate reasons
-    const reasons = this.generateReasons(indicators, features, signal);
+    // Generate reasons (enhanced with LLM data)
+    const reasons = this.generateReasons(indicators, features, signal, llmResult);
 
     // Calculate entry, stop loss, and take profit
     const { entryPrice, stopLoss, takeProfit } = this.calculateLevels(
@@ -168,7 +187,42 @@ class TradingModel {
       stopLoss: Math.round(stopLoss * 100) / 100,
       takeProfit: Math.round(takeProfit * 100) / 100,
       riskReward,
+      llmAnalysis: llmResult
+        ? {
+            reasoning: llmResult.reasoning,
+            riskNotes: llmResult.riskNotes,
+            marketRegime: llmResult.marketRegime,
+            keyLevels: llmResult.keyLevels,
+          }
+        : null,
     };
+  }
+
+  private calculateSentimentFallback(
+    indicators: ReturnType<typeof calculateIndicators>,
+    features: number[]
+  ): number {
+    let score = 50;
+
+    if (indicators.rsi14) {
+      if (indicators.rsi14 < 30) score += 15;
+      else if (indicators.rsi14 > 70) score -= 15;
+      else if (indicators.rsi14 < 45) score += 5;
+      else if (indicators.rsi14 > 55) score -= 5;
+    }
+
+    if (indicators.trend === "bullish") score += 10;
+    else if (indicators.trend === "bearish") score -= 10;
+
+    const returns5 = features[5];
+    if (returns5 > 2) score += 10;
+    else if (returns5 < -2) score -= 10;
+
+    const returns10 = features[6];
+    if (returns10 > 3) score += 5;
+    else if (returns10 < -3) score -= 5;
+
+    return Math.max(0, Math.min(100, score));
   }
 
   private calculateTechnicalScore(indicators: ReturnType<typeof calculateIndicators>): number {
@@ -256,11 +310,11 @@ class TradingModel {
   private generateReasons(
     indicators: ReturnType<typeof calculateIndicators>,
     features: number[],
-    signal: "BUY" | "SELL" | "HOLD"
+    signal: "BUY" | "SELL" | "HOLD",
+    llmResult?: LLMSentimentResult | null
   ): string[] {
     const reasons: string[] = [];
-    // Use last close price from features index 0 (RSI base) or approximate
-    const lastPrice = features[10] || 0; // sma distance feature
+    const lastPrice = features[10] || 0;
 
     if (signal === "BUY") {
       if (indicators.rsi14 && indicators.rsi14 < 35) {
@@ -296,6 +350,11 @@ class TradingModel {
 
     if (indicators.atr14) {
       reasons.push(`ATR: ${indicators.atr14.toFixed(2)} - volatility assessment`);
+    }
+
+    // Append LLM analysis reason
+    if (llmResult?.reasoning) {
+      reasons.push(`AI Insight: ${llmResult.reasoning}`);
     }
 
     return reasons.length > 0 ? reasons : ["Analysis inconclusive"];

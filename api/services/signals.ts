@@ -54,7 +54,7 @@ export async function generateSignal(
 
     // Get AI prediction
     const model = getAIModel();
-    const prediction = model.predict(data);
+    const prediction = await model.predict(data, symbol, timeframe);
 
     // Risk check
     const riskCheck = checkRisk(prediction, fullConfig);

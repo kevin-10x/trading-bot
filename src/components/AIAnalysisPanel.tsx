@@ -1,4 +1,4 @@
-import { Brain, TrendingUp, AlertTriangle, CheckCircle, BarChart3 } from "lucide-react";
+import { Brain, TrendingUp, AlertTriangle, CheckCircle, BarChart3, MessageSquare, Shield } from "lucide-react";
 
 interface AIAnalysisPanelProps {
   prediction: {
@@ -18,6 +18,12 @@ interface AIAnalysisPanelProps {
     stopLoss: number;
     takeProfit: number;
     riskReward: string;
+    llmAnalysis?: {
+      reasoning: string;
+      riskNotes: string[];
+      marketRegime: string;
+      keyLevels: { type: "support" | "resistance"; price: number }[];
+    } | null;
   };
   symbol: string;
 }
@@ -68,7 +74,7 @@ export default function AIAnalysisPanel({
             <h3 className="text-lg font-semibold text-white">
               AI Analysis - {symbol}
             </h3>
-            <p className="text-sm text-gray-400">XGBoost Ensemble Model</p>
+            <p className="text-sm text-gray-400">LLM-Enhanced Ensemble Model</p>
           </div>
         </div>
         <div
@@ -174,6 +180,50 @@ export default function AIAnalysisPanel({
           </p>
         </div>
       </div>
+
+      {/* LLM Analysis */}
+      {prediction.llmAnalysis && (
+        <div className="bg-purple-900/20 border border-purple-500/20 rounded-lg p-4 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <MessageSquare className="w-4 h-4 text-purple-400" />
+            <h4 className="text-sm font-semibold text-white">AI Market Insight</h4>
+            <span className="text-xs text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded-full">
+              Groq LLM
+            </span>
+          </div>
+          <p className="text-sm text-gray-300 mb-3">{prediction.llmAnalysis.reasoning}</p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+              Regime: <span className="text-white capitalize">{prediction.llmAnalysis.marketRegime}</span>
+            </span>
+            {prediction.llmAnalysis.keyLevels.map((level, i) => (
+              <span key={i} className={`text-xs px-2 py-1 rounded ${
+                level.type === "support"
+                  ? "bg-green-500/10 text-green-400"
+                  : "bg-red-500/10 text-red-400"
+              }`}>
+                {level.type === "support" ? "Support" : "Resistance"}: ${level.price.toLocaleString()}
+              </span>
+            ))}
+          </div>
+          {prediction.llmAnalysis.riskNotes.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-purple-500/10">
+              <div className="flex items-center gap-1 mb-1">
+                <Shield className="w-3 h-3 text-yellow-400" />
+                <span className="text-xs text-gray-400">Risk Factors</span>
+              </div>
+              <ul className="space-y-1">
+                {prediction.llmAnalysis.riskNotes.map((note, i) => (
+                  <li key={i} className="text-xs text-gray-400 flex items-start gap-1">
+                    <span className="text-yellow-400 mt-0.5">-</span>
+                    {note}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Reasons */}
       <div>

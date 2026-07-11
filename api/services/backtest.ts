@@ -104,7 +104,7 @@ export async function runBacktest(
 
     // Check if we have an open position
     if (currentPosition) {
-      const shouldClose = checkExit(
+      const shouldClose = await checkExit(
         currentPosition,
         candle,
         nextCandle,
@@ -246,7 +246,7 @@ function generateEntrySignal(
   switch (strategy) {
     case "ai": {
       const model = getAIModel();
-      const prediction = model.predict(data);
+      const prediction = await model.predict(data);
       if (prediction.confidence >= minConfidence && prediction.signal !== "HOLD") {
         return {
           type: prediction.signal === "BUY" ? "LONG" : "SHORT",
@@ -280,7 +280,7 @@ function generateEntrySignal(
   }
 }
 
-function checkExit(
+async function checkExit(
   position: {
     type: "LONG" | "SHORT";
     stopLoss: number;
@@ -311,7 +311,7 @@ function checkExit(
   // Check for signal reversal
   if (strategy === "ai") {
     const model = getAIModel();
-    const prediction = model.predict(data);
+    const prediction = await model.predict(data);
     if (
       (position.type === "LONG" && prediction.signal === "SELL") ||
       (position.type === "SHORT" && prediction.signal === "BUY")
