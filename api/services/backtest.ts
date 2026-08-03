@@ -139,7 +139,7 @@ export async function runBacktest(
       }
     } else {
       // Look for entry signal
-      const signal = generateEntrySignal(window, strategy, minConfidence);
+      const signal = await generateEntrySignal(window, strategy, minConfidence);
 
       if (signal) {
         const stopLoss =
@@ -236,11 +236,11 @@ export async function runBacktest(
   };
 }
 
-function generateEntrySignal(
+async function generateEntrySignal(
   data: OHLCV[],
   strategy: string,
   minConfidence: number
-): { type: "LONG" | "SHORT" } | null {
+): Promise<{ type: "LONG" | "SHORT" } | null> {
   const indicators = calculateIndicators(data);
 
   switch (strategy) {
@@ -290,7 +290,7 @@ async function checkExit(
   _nextCandle: OHLCV,
   strategy: string,
   data: OHLCV[]
-): { shouldClose: boolean; exitPrice: number; reason: "tp" | "sl" | "signal" } {
+): Promise<{ shouldClose: boolean; exitPrice: number; reason: "tp" | "sl" | "signal" }> {
   // Check stop loss and take profit
   if (position.type === "LONG") {
     if (candle.low <= position.stopLoss) {
